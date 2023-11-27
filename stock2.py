@@ -16,9 +16,12 @@ import pandas as pd
 from datetime import datetime, timedelta
 import pickle
 import numpy as np
+import matplotlib.pyplot as plt
 
 from keras.models import Sequential
-from keras.layers import Dense, LSTM
+from keras.layers import Dense, LSTM, Dropout
+from sklearn.preprocessing import MinMaxScaler
+
 
 # Database setup
 db_connection = sqlite3.connect('stock_data.db')
@@ -57,35 +60,46 @@ def train_lstm_model(data):
     stock_prices = data['Adj Close'].values.reshape(-1, 1)
 
     # Feature Scaling
-    from sklearn.preprocessing import MinMaxScaler
-    sc = MinMaxScaler(feature_range=(0, 1))
-    stock_prices_scaled = sc.fit_transform(stock_prices)
+    scaler = MinMaxScaler(feature_range = (0, 1))
+    scaled_training_set = scaler.fit_transform(training_set)
 
-    # Creating a data structure with 60 time-steps and 1 output
+
     X_train = []
-    y_train = []
-    for i in range(60, len(stock_prices_scaled)):
-        X_train.append(stock_prices_scaled[i-60:i, 0])
-        y_train.append(stock_prices_scaled[i, 0])
-    X_train, y_train = np.array(X_train), np.array(y_train)
+    Y_train = []
+    for i in range(60, 1258):
+        X_train.append(scaled_training_set[i-60:i, 0])
+        Y_train.append(scaled_training_set[i, 0])
+    X_train = np.array(X_train)
+    Y_train = np.array(Y_train)
 
-    # Reshape the data for LSTM (batch_size, timesteps, input_dim)
-    X_train = np.reshape(X_train, (X_train.shape[0], X_train.shape[1], 1))
+    X_train = np.reshape(X_train,(X_train.shape[0], X_train.shape[1], 1))
 
     # Build the LSTM model
-    model = Sequential()
-    model.add(LSTM(units=50, return_sequences=True, input_shape=(X_train.shape[1], 1)))
-    model.add(LSTM(units=50, return_sequences=True))
-    model.add(LSTM(units=50))
-    model.add(Dense(units=1))
+    regressor = Sequential()
+
+    regressor.add(LSTM(units = 50, return_sequences = True, input_shape = (X_train.shape[1], 1)))
+    regressor.add(Dropout(0.2))
+
+    regressor.add(LSTM(units = 50, return_sequences = True))
+    regressor.add(Dropout(0.2))
+
+
+    regressor.add(LSTM(units = 50, return_sequences = True))
+    regressor.add(Dropout(0.2))
+
+
+    regressor.add(LSTM(units = 50))
+    regressor.add(Dropout(0.2))
+
+    regressor.add(Dense(units =  1))
 
     # Compile the model
-    model.compile(optimizer='adam', loss='mean_squared_error')
+    regressor.compile(optimizer='adam', loss='mean_squared_error')
 
     # Fit the model to the training set
-    model.fit(X_train, y_train, epochs=50, batch_size=32)
+    regressor.fit(X_train, y_train, epochs=10, batch_size=32)
 
-    return model, sc
+    return regressor, scaler
 
 def predict_tomorrows_closing_lstm(ticker, model, sc):
     # Fetch the latest data
@@ -115,39 +129,6 @@ def predict_tomorrows_closing_lstm(ticker, model, sc):
     return predicted_price[0, 0]
 
 
-def train_model(data):
-    # Step 1: Data Cleaning
-    # In financial datasets, it's common to have no missing data for these features.
-    # However, if there are missing values, handle them appropriately.
-    data.fillna(method='ffill', inplace=True)  # Forward fill for time series data
-
-    # Step 2: Feature Engineering
-    # Create new financial indicators/features that could be beneficial for the model
-    # Example: Moving averages, daily return, etc.
-    data['Daily Return'] = data['Adj Close'].pct_change()  # Daily return
-    data.dropna(inplace=True)  # Drop NA values created by pct_change
-
-    # Step 3: Data Transformation
-    # Normalize/Standardize features
-    scaler = StandardScaler()
-    features = ['Open', 'High', 'Low', 'Close', 'Adj Close', 'Volume', 'Daily Return']
-    data[features] = scaler.fit_transform(data[features])
-
-    # Step 4: Splitting the Data
-    # Use 'Adj Close' or another feature as the target variable
-    X = data[features]  # All features except the target
-    y = data['Adj Close']  # Predicting adjusted closing price
-    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
-
-    # Step 5: Train the Model
-    model = RandomForestRegressor(random_state=42)
-    model.fit(X_train, y_train)
-
-    # Optionally: Evaluate the model using X_test and y_test
-
-
-
-    return model, scaler
 
 # Function to fetch the latest data
 def fetch_latest_data(ticker):
@@ -165,46 +146,6 @@ def load_model_and_scaler_and_time(ticker):
     else:
         raise Exception("Model and scaler not found for ticker:", ticker)
 
-# Function to predict tomorrow's closing
-def predict_tomorrows_closing(ticker):
-    # Load model and scaler
-    model, scaler, last_accessed = load_model_and_scaler_and_time(ticker)
-    print(last_accessed)
-    # cast scaler to scaler object
-    datetime_object = datetime.strptime(last_accessed, '%Y-%m-%d %H:%M:%S.%f')
-    print(datetime_object)
-    # if the data is more than a day old, then we need to update the model
-    print(datetime.now() - datetime_object)
-    if (datetime.now() - datetime_object) > timedelta(days=1):
-        # If the data is more than a day old, update the model
-        # Fetch the latest data
-        latest_data = fetch_latest_data(ticker)
-        
-        model, scaler = train_model(latest_data)
-
-        latest_features = scaler.transform(latest_data.iloc[-1:])
-        
-        # Predict tomorrow's closing
-        predicted_closing = model.predict(latest_features)
-        return predicted_closing[0]
-
-    # Fetch and preprocess latest data
-    # Apply the same preprocessing steps as during training
-    # (e.g., feature engineering, scaling using the loaded scaler)
-    # ...
-
-    # Prepare the input for prediction (typically the latest available data point)
-    # Ensure the input format is correct (e.g., 2D array for scikit-learn models)
-    if scaler is not None:
-        latest_data = fetch_latest_data(ticker)
-        latest_data['Daily Return'] = latest_data['Adj Close'].pct_change()  # Daily return
-        print(latest_data.iloc[-1:])
-        latest_features = scaler.transform(latest_data.iloc[-1:])
-        predicted_closing = model.predict(latest_features)
-        return predicted_closing[0]
-    else:
-        raise Exception("Scaler is not available for ticker:", ticker)
-    
 
 
 # Main function to handle stock data
