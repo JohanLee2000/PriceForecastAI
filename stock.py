@@ -10,12 +10,11 @@ from sklearn.preprocessing import MinMaxScaler
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dense, Dropout
 
-company = 'AAPL'
+company = 'GOOGL'
 start = dt.datetime(2012,1,1)
 end = dt.datetime(2020,1,1)
 
 data = yf.download(company, start=start, end=end)
-# data = web.DataReader(company, 'yahoo', start, end)
 
 scaler = MinMaxScaler(feature_range = (0, 1))
 scaled_data = scaler.fit_transform(data['Close'].values.reshape(-1,1))
@@ -43,13 +42,12 @@ model.add(Dropout(0.2))
 model.add(Dense(units=1))
 
 model.compile(optimizer='adam', loss='mean_squared_error')
-model.fit(x_train, y_train, epochs=25, batch_size=32)
+model.fit(x_train, y_train, epochs=50, batch_size=32)
 
 #Test accuracy
 test_start = dt.datetime(2020,1,1)
 test_end = dt.datetime.now()
 
-# test_data = web.DataReader(company, 'yahoo', test_start, test_end)
 test_data = yf.download(company, start=test_start, end=test_end)
 actual_prices = test_data['Close'].values
 
