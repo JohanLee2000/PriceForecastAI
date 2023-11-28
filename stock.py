@@ -2,28 +2,34 @@
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import pandas_datareader as web
 import datetime as dt
 import yfinance as yf
+
+import tkinter as tk
 
 from sklearn.preprocessing import MinMaxScaler
 from tensorflow.keras.models import Sequential
 from tensorflow.keras.layers import LSTM, Dense, Dropout
 
-def run_and_build_model(user_input, end_day , days_to_compare):
-    company = user_input
+def run_and_build_model(stock_entry, end_day_entry, days_to_compare_entry, prediction_label):
+
+    #Gather input fields
+    company = stock_entry.get()
+    end_day = end_day_entry.get()
+    days_to_compare = days_to_compare_entry.get()
+
 
     start = dt.datetime.strptime(end_day, "%Y,%m,%d")
     end = dt.datetime.today()
-
+    #Download data
     data = yf.download(company, start=start, end=end)
-    # data = web.DataReader(company, 'yahoo', start, end)
     print(data)
+    #Scale data
     scaler = MinMaxScaler(feature_range = (0, 1))
     scaled_data = scaler.fit_transform(data['Close'].values.reshape(-1,1))
 
     prediction_days = int(days_to_compare)
-    print(prediction_days)
+    #Prepare data for model to train on
     x_train = []
     y_train = []
     for x in range(prediction_days, len(scaled_data)):
@@ -34,6 +40,7 @@ def run_and_build_model(user_input, end_day , days_to_compare):
     y_train = np.array(y_train)
     x_train = np.reshape(x_train, (x_train.shape[0], x_train.shape[1], 1))
 
+    #Create model and feed data, train it
     model = Sequential()
 
     model.add(LSTM(units = 50, return_sequences = True, input_shape = (x_train.shape[1], 1)))
@@ -72,6 +79,7 @@ def run_and_build_model(user_input, end_day , days_to_compare):
     predicted_prices = model.predict(x_test)
     predicted_prices = scaler.inverse_transform(predicted_prices)
 
+    #Plot data on graph
     plt.plot(actual_prices, color="black", label=f"Actual {company} Price")
     plt.plot(predicted_prices, color="green", label=f"Predicted {company} Price")
     plt.title(f"{company} Share Price")
@@ -80,7 +88,6 @@ def run_and_build_model(user_input, end_day , days_to_compare):
     plt.legend()
     plt.show()
 
-
     #Predict next day
     real_data = [model_inputs[len(model_inputs) + 1 - prediction_days:len(model_inputs+1), 0]]
     real_data = np.array(real_data)
@@ -88,12 +95,40 @@ def run_and_build_model(user_input, end_day , days_to_compare):
 
     prediction = model.predict(real_data)
     prediction = scaler.inverse_transform(prediction)
-    print(f"Prediction: {prediction}")
+    prediction_label.config(text=f"Prediction for tommorow: {prediction}")
 
 def main():
-    user_input = input("Enter the stock ticker: ")
-    end_day = input("Enter the end day (YYYY,MM,DD): ")
-    days_to_compare = input("Enter the number of days to compare the prediction against: ")
-    run_and_build_model( user_input, end_day , days_to_compare)
+    #Create GUI
+    window = tk.Tk()
+    window.title("PriceForcast AI")
+
+    stock_label = tk.Label(text="Enter the stock ticker: ")
+    stock_entry = tk.Entry()
+    stock_label.pack()
+    stock_entry.pack()
+
+    end_day_label = tk.Label(text="Enter the end day (YYYY,MM,DD): ")
+    end_day_entry = tk.Entry()
+    end_day_label.pack()
+    end_day_entry.pack()
+
+    days_to_compare_label = tk.Label(text="Enter the number of days to compare the prediction against: ")
+    days_to_compare_entry = tk.Entry()
+    days_to_compare_label.pack()
+    days_to_compare_entry.pack()
+
+    # Label for displaying prediction
+    prediction_label = tk.Label(window, text="")
+    prediction_label.pack()
+    
+    # user_input = input("Enter the stock ticker: ")
+    # end_day = input("Enter the end day (YYYY,MM,DD): ")
+    # days_to_compare = input("Enter the number of days to compare the prediction against: ")
+
+    #Buttons
+    button = tk.Button(window, text = "Predict", command=lambda: run_and_build_model(stock_entry, end_day_entry, days_to_compare_entry, prediction_label))
+    button.pack()
+    # run_and_build_model( user_input, end_day , days_to_compare)
+    window.mainloop()
 
 main()
