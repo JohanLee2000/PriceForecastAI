@@ -18,12 +18,13 @@ def run_and_build_model(stock_entry, end_day_entry, days_to_compare_entry, predi
     end_day = end_day_entry.get()
     days_to_compare = days_to_compare_entry.get()
 
-
     start = dt.datetime.strptime(end_day, "%Y,%m,%d")
     end = dt.datetime.today()
+
     #Download data
     data = yf.download(company, start=start, end=end)
     print(data)
+
     #Scale data
     scaler = MinMaxScaler(feature_range = (0, 1))
     scaled_data = scaler.fit_transform(data['Close'].values.reshape(-1,1))
@@ -42,7 +43,7 @@ def run_and_build_model(stock_entry, end_day_entry, days_to_compare_entry, predi
 
     #Create model and feed data, train it
     model = Sequential()
-
+    
     model.add(LSTM(units = 50, return_sequences = True, input_shape = (x_train.shape[1], 1)))
     model.add(Dropout(0.2))
     model.add(LSTM(units = 50, return_sequences = True))
@@ -121,14 +122,10 @@ def main():
     prediction_label = tk.Label(window, text="")
     prediction_label.pack()
     
-    # user_input = input("Enter the stock ticker: ")
-    # end_day = input("Enter the end day (YYYY,MM,DD): ")
-    # days_to_compare = input("Enter the number of days to compare the prediction against: ")
-
     #Buttons
     button = tk.Button(window, text = "Predict", command=lambda: run_and_build_model(stock_entry, end_day_entry, days_to_compare_entry, prediction_label))
     button.pack()
-    # run_and_build_model( user_input, end_day , days_to_compare)
+
     window.mainloop()
 
 main()
