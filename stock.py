@@ -23,7 +23,7 @@ def run_and_build_model(stock_entry, end_day_entry, days_to_compare_entry, predi
 
     #Download data
     data = yf.download(company, start=start, end=end)
-    print(data)
+    # print(data)
 
     #Scale data
     scaler = MinMaxScaler(feature_range = (0, 1))
@@ -43,7 +43,7 @@ def run_and_build_model(stock_entry, end_day_entry, days_to_compare_entry, predi
 
     #Create model and feed data, train it
     model = Sequential()
-    
+
     model.add(LSTM(units = 50, return_sequences = True, input_shape = (x_train.shape[1], 1)))
     model.add(Dropout(0.2))
     model.add(LSTM(units = 50, return_sequences = True))
@@ -82,7 +82,7 @@ def run_and_build_model(stock_entry, end_day_entry, days_to_compare_entry, predi
 
     #Plot data on graph
     plt.plot(actual_prices, color="black", label=f"Actual {company} Price")
-    plt.plot(predicted_prices, color="green", label=f"Predicted {company} Price")
+    plt.plot(predicted_prices[20:], color="green", label=f"Predicted {company} Price")
     plt.title(f"{company} Share Price")
     plt.xlabel('Time')
     plt.ylabel(f'{company} Share Price')
@@ -96,7 +96,7 @@ def run_and_build_model(stock_entry, end_day_entry, days_to_compare_entry, predi
 
     prediction = model.predict(real_data)
     prediction = scaler.inverse_transform(prediction)
-    prediction_label.config(text=f"Prediction for tommorow: {prediction}")
+    prediction_label.config(text=f"Prediction for tommorow: {prediction[0][0]}")
 
 def main():
     #Create GUI
